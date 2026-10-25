@@ -1,0 +1,59 @@
+# Benchmark evaluation data: PartNet-Mobility (SINGAPO split), ACD, and ArtiCraft test sets.
+# Sensor augmentation stays off for evaluation (the dataset defaults disable it).
+#
+# Key groups below:
+#   dataset_list          - one entry per data source; `dir` is relative to data_root
+#                           and `up_axis` states the raw convention of that dataset.
+#   num_points            - points per state fed to the model; PartField encodes the
+#                           denser num_partfield_points.
+#   max_states            - observations loaded per object.
+#   render_resolution,    - virtual depth camera, and the range of viewpoints it is
+#   camera_*                placed at (see famos/data/dataset.py).
+_target_: famos.data.datamodule.FAMOSDataModule
+data_root: ${data_root}
+dataset_list:
+  test:
+  - name: partnet_mobility
+    dir: partnet_mobility/partnet_mobility_test.h5
+    filenames: data_split/partnet_mobility/test.txt
+    states: data_split/partnet_mobility/test_states.json
+    up_axis: 'y'
+    dataset_type: hdf5
+  - name: acd
+    dir: acd/acd_test.h5
+    filenames: data_split/acd/test.txt
+    states: data_split/acd/test_states.json
+    up_axis: 'y'
+    dataset_type: hdf5
+  - name: articraft
+    dir: articraft/articraft_test.h5
+    filenames: data_split/articraft/test.txt
+    states: data_split/articraft/test_states.json
+    up_axis: z
+    dataset_type: hdf5
+num_points: 2048
+num_partfield_points: 30000
+max_states: 2
+batch_size: 1
+# Point subsampling draws from each worker's RNG, so metrics change slightly with num_workers.
+num_workers: 2
+max_parts: ${model.num_part_queries}
+observed_articulation_span_min_visible_points: 5
+render_resolution: 256
+camera_distance: 2.0
+camera_fov_deg: 60.0
+camera_mode_probs:
+  drift: 0.1
+  independent_uniform: 0.9
+camera_yaw_range:
+- -45.0
+- 45.0
+camera_pitch_range:
+- 20.0
+- 50.0
+camera_yaw_drift_range:
+- -10.0
+- 10.0
+camera_pitch_drift_range:
+- -10.0
+- 10.0

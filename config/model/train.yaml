@@ -1,0 +1,38 @@
+articulation_transformer:
+  _target_: famos.model.multi_state_articulation_transformer.MultiStateArticulationTransformer
+  in_dim: 448
+  embed_dim: 768
+  num_layers: 6
+  num_heads: 12
+  dropout_rate: 0.0
+  attn_dtype: bf16
+  part_query_frequency_dim: 64
+  num_part_queries: ${model.num_part_queries}
+_target_: famos.famos.FAMOS
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 3.0e-05
+  betas:
+  - 0.95
+  - 0.999
+  weight_decay: 1.0e-06
+  eps: 1.0e-08
+num_part_queries: 16
+min_part_confidence: 0.0
+lambda_revolute: 1.0
+lambda_prismatic: 1.0
+lambda_type: 1.0
+lambda_segmentation: 1.0
+lambda_span: 1.0
+partfield_checkpoint: ${oc.env:PARTFIELD_CHECKPOINT,./checkpoints/model_objaverse.ckpt}
+initialization_checkpoint: null
+lr_scheduler:
+  _target_: torch.optim.lr_scheduler.OneCycleLR
+  _partial_: true
+  max_lr: 3.0e-05
+  total_steps: 50000
+  pct_start: 0.005
+  anneal_strategy: cos
+  div_factor: 100
+  final_div_factor: 100

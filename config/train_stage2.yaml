@@ -1,0 +1,22 @@
+# Stage 2: continued training on an equal procedural/real mixture.
+defaults:
+  - model: train
+  - data: stage2
+  - trainer: train
+  - loggers: wandb
+  - _self_
+
+seed: 7
+data_root: ${oc.env:FAMOS_DATA_ROOT,./data}
+experiment_name: famos_stage2
+log_dir: ./outputs/${experiment_name}
+ckpt_path: ${log_dir}/last.ckpt
+
+model:
+  initialization_checkpoint: ${oc.env:FAMOS_STAGE1_CHECKPOINT,./outputs/famos_stage1/last.ckpt}
+  lr_scheduler:
+    total_steps: 80000
+
+hydra:
+  run:
+    dir: ${log_dir}

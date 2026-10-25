@@ -1,0 +1,17 @@
+# FAMOS inference and benchmark evaluation.
+defaults:
+  - model: inference
+  - data: inference
+  - trainer: inference
+  - _self_
+
+seed: 7
+data_root: ${oc.env:FAMOS_DATA_ROOT,./data}
+log_dir: ./outputs/inference
+ckpt_path: ${oc.env:FAMOS_CHECKPOINT,./checkpoints/famos.safetensors}
+
+hydra:
+  verbose: false
+  output_subdir: null
+  run:
+    dir: .

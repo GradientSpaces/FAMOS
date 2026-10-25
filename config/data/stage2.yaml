@@ -1,0 +1,128 @@
+# Stage 2 data: equal procedural/real mixture (sample_ratio sums to 1.0 over train).
+# Validation observes the fixed joint states in data_split/*/val_states.json.
+#
+# Key groups below:
+#   dataset_list          - one entry per data source; `dir` is relative to data_root
+#                           and `up_axis` states the raw convention of that dataset.
+#   num_points            - points per state fed to the model; PartField encodes the
+#                           denser num_partfield_points.
+#   max_states            - observations loaded per object.
+#   render_resolution,    - virtual depth camera, and the range of viewpoints it is
+#   camera_*                placed at (see famos/data/dataset.py).
+#   sensor_aug_*          - simulated sensor noise (depth, intrinsics, pose, outliers),
+#                           applied to a sensor_aug_prob fraction of training objects.
+_target_: famos.data.datamodule.FAMOSDataModule
+data_root: ${data_root}
+dataset_list:
+  train:
+  - name: partnet_mobility
+    dir: partnet_mobility/partnet_mobility_train.h5
+    filenames: data_split/partnet_mobility/train.txt
+    up_axis: 'y'
+    dataset_type: hdf5
+    sample_ratio: 0.2565
+  - name: grscenes
+    dir: grscenes/grscenes_train.h5
+    filenames: data_split/grscenes/train.txt
+    up_axis: z
+    dataset_type: hdf5
+    sample_ratio: 0.2435
+  - name: procedural
+    up_axis: z
+    dataset_type: procedural
+    sample_ratio: 0.5
+    procedural_length: 10000000
+    procedural_seed: ${seed}
+    procedural_forbid_cabinet_side_doors: true
+    # All generator families except fan, in registry order (order affects sampling).
+    procedural_families:
+    - hinged_cabinet
+    - drawer_cabinet
+    - combo_cabinet
+    - triple_combo_cabinet
+    - stacked_cabinets
+    - door
+    - table
+    - box
+    - laptop
+    - oven
+    - bucket
+    - eyeglasses
+    - scissors
+    - trash_can
+    - trolley
+    - washing_machine
+    procedural_family_pitch_ranges:
+      scissors:
+      - 60.0
+      - 80.0
+      eyeglasses:
+      - 60.0
+      - 80.0
+      box:
+      - 45.0
+      - 65.0
+  val:
+  - name: partnet_mobility
+    dir: partnet_mobility/partnet_mobility_val.h5
+    filenames: data_split/partnet_mobility/val.txt
+    states: data_split/partnet_mobility/val_states.json
+    up_axis: 'y'
+    dataset_type: hdf5
+  - name: grscenes
+    dir: grscenes/grscenes_val.h5
+    filenames: data_split/grscenes/val.txt
+    states: data_split/grscenes/val_states.json
+    up_axis: z
+    dataset_type: hdf5
+num_points: 2048
+num_partfield_points: 30000
+max_states: 4
+batch_size: 4
+num_workers: 4
+max_parts: ${model.num_part_queries}
+state_sampling_probs:
+- 0.1
+- 0.3
+- 0.3
+- 0.3
+observed_articulation_span_min_visible_points: 5
+render_resolution: 192
+camera_distance: 2.0
+camera_fov_deg: 60.0
+camera_mode_probs:
+  drift: 0.4
+  independent_uniform: 0.6
+camera_yaw_range:
+- -45.0
+- 45.0
+camera_pitch_range:
+- 20.0
+- 50.0
+camera_yaw_drift_range:
+- -10.0
+- 10.0
+camera_pitch_drift_range:
+- -10.0
+- 10.0
+sensor_aug_prob: 0.3
+sensor_aug_point_keep_range:
+- 0.85
+- 1.0
+sensor_aug_depth_std: 0.004
+sensor_aug_depth_rel_std: 0.001
+sensor_aug_depth_max: 0.015
+sensor_aug_focal_scale_std: 0.01
+sensor_aug_focal_scale_max: 0.03
+sensor_aug_principal_point_std_px: 1.0
+sensor_aug_principal_point_max_px: 3.0
+sensor_aug_pose_rot_std_deg: 0.75
+sensor_aug_pose_rot_max_deg: 2.0
+sensor_aug_pose_trans_std: 0.003
+sensor_aug_pose_trans_max: 0.01
+sensor_aug_outlier_ratio: 0.015
+sensor_aug_outlier_near_surface_prob: 0.75
+sensor_aug_outlier_near_surface_std: 0.035
+sensor_aug_outlier_bbox_scale: 1.15
+val_num_workers: 2
+sampling_seed: ${seed}

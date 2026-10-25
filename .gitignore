@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Local environments and editors
+.env
+.venv/
+.vscode/
+.idea/
+
+# Data, checkpoints, and generated outputs
+/data/
+/checkpoints/
+/outputs/
+/results/
+/materials/
+/procedural_assets/
+*.ckpt
+*.log
+lightning_logs/
+wandb/
+
+# OS files
+.DS_Store
+
+# Your own captures (demo/README.md)
+/my_object/

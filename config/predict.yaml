@@ -1,0 +1,20 @@
+# FAMOS inference on real-world captures (see predict.py).
+# Points per observation and the part confidence threshold come from the benchmark configs.
+defaults:
+  - model: inference
+  - data: inference
+  - _self_
+
+seed: 7
+# One folder per object with reconstruction.npz (and optionally view.json), or a single such folder.
+input_dir: ./demo
+output_dir: ./outputs/demo
+log_dir: ${output_dir}
+data_root: null
+ckpt_path: ${oc.env:FAMOS_CHECKPOINT,./checkpoints/famos.safetensors}
+
+hydra:
+  verbose: false
+  output_subdir: null
+  run:
+    dir: .

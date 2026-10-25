@@ -1,0 +1,21 @@
+articulation_transformer:
+  _target_: famos.model.multi_state_articulation_transformer.MultiStateArticulationTransformer
+  in_dim: 448
+  embed_dim: 768
+  num_layers: 6
+  num_heads: 12
+  dropout_rate: 0.0
+  attn_dtype: bf16
+  part_query_frequency_dim: 64
+  num_part_queries: ${model.num_part_queries}
+_target_: famos.famos.FAMOS
+partfield_checkpoint: ${oc.env:PARTFIELD_CHECKPOINT,./checkpoints/model_objaverse.ckpt}
+log_dir: ${log_dir}
+num_part_queries: 16
+min_part_confidence: 0.4
+motion_axis_threshold_deg: 5.0
+motion_origin_threshold: 0.05
+motion_iou_threshold: 0.5
+export_visualizations: false
+# Score parts on the first input state (default), or jointly over all input states.
+eval_all_states: false

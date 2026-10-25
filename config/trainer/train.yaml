@@ -1,0 +1,53 @@
+# Uses all visible GPUs (or set trainer.devices=N). train.py sets accumulate_grad_batches so
+# that GPUs x batch_size (config/data/*.yaml) x accumulation = effective_batch_size, e.g.
+# 4 x 4 x 8 = 128 as in the paper, or 1 x 4 x 32 on a single GPU.
+_target_: lightning.pytorch.Trainer
+accelerator: auto
+devices: auto
+num_nodes: 1
+strategy: ddp
+precision: bf16-mixed
+default_root_dir: ${log_dir}
+max_epochs: 1000000
+max_steps: ${model.lr_scheduler.total_steps}
+gradient_clip_val: 1.0
+effective_batch_size: 128
+# Validate every 400 optimizer steps; train.py converts this to val_check_interval (batches).
+val_check_optimizer_steps: 400
+check_val_every_n_epoch: 1
+num_sanity_val_steps: 0
+log_every_n_steps: 10
+use_distributed_sampler: false
+callbacks:
+- _target_: famos.callbacks.step_progress.StepProgressCallback
+  log_every_n_steps: 50
+  window_size: 50
+- _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  dirpath: ${log_dir}
+  filename: best-loss-step-{step}
+  auto_insert_metric_name: false
+  save_top_k: 1
+  monitor: val/loss
+  mode: min
+  save_last: false
+  save_on_train_epoch_end: false
+- _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  dirpath: ${log_dir}
+  filename: last
+  monitor: null
+  every_n_train_steps: 500
+  save_top_k: 1
+  save_last: false
+  enable_version_counter: false
+  save_on_train_epoch_end: false
+- _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  dirpath: ${log_dir}
+  filename: interval-step-{step}
+  save_top_k: -1
+  every_n_train_steps: 8000
+  save_last: false
+  save_on_train_epoch_end: false
+  monitor: null
+- _target_: lightning.pytorch.callbacks.RichModelSummary
+- _target_: lightning.pytorch.callbacks.LearningRateMonitor
+  logging_interval: step

@@ -1,0 +1,13 @@
+# PartNet-Mobility test set (SINGAPO split); everything else is shared with inference.yaml.
+defaults:
+  - inference
+  - _self_
+
+dataset_list:
+  test:
+  - name: partnet_mobility
+    dir: partnet_mobility/partnet_mobility_test.h5
+    filenames: data_split/partnet_mobility/test.txt
+    states: data_split/partnet_mobility/test_states.json
+    up_axis: 'y'
+    dataset_type: hdf5

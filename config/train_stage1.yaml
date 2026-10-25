@@ -1,0 +1,17 @@
+# Stage 1 (pre-training): procedural objects only.
+defaults:
+  - model: train
+  - data: stage1
+  - trainer: train
+  - loggers: wandb
+  - _self_
+
+seed: 7
+data_root: ${oc.env:FAMOS_DATA_ROOT,./data}
+experiment_name: famos_stage1
+log_dir: ./outputs/${experiment_name}
+ckpt_path: ${log_dir}/last.ckpt
+
+hydra:
+  run:
+    dir: ${log_dir}

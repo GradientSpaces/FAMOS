@@ -1,0 +1,13 @@
+# ArtiCraft test set; everything else is shared with inference.yaml.
+defaults:
+  - inference
+  - _self_
+
+dataset_list:
+  test:
+  - name: articraft
+    dir: articraft/articraft_test.h5
+    filenames: data_split/articraft/test.txt
+    states: data_split/articraft/test_states.json
+    up_axis: z
+    dataset_type: hdf5

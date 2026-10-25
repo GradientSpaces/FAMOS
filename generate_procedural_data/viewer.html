@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Procedural Asset Viewer</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<style>
+  :root {
+    --paper: #f8f7f4; --surface: #ffffff; --ink: #1f1d28; --muted: #6f6b7a;
+    --purple: #6a4fb6; --purple-deep: #55409a; --line: #e5e2e9; --radius: 16px;
+    --shadow: 0 1px 2px rgba(40, 32, 70, .03), 0 10px 30px rgba(40, 32, 70, .04);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  button { font: inherit; border: 0; cursor: pointer; }
+  main { max-width: 1240px; margin: 0 auto; padding: 28px 16px 40px; }
+  h1 { font-size: 20px; font-weight: 650; margin: 0 0 4px; }
+  .count { margin: 0 0 14px; font-size: 13px; color: var(--muted); }
+  .picker { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+  .choice { border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
+    padding: 7px 15px; font-size: 12.5px; color: var(--muted); transition: border-color .2s, color .2s; }
+  .choice:hover { border-color: #c9bfe0; }
+  .choice[aria-pressed="true"] { border-color: var(--purple); color: var(--purple); font-weight: 600; }
+  .choice small { margin-left: 5px; font-size: 11px; opacity: .7; }
+  .stage { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 20px 24px 22px; }
+  .canvas-wrap { position: relative; }
+  canvas { display: block; width: 100%; height: min(68vh, 620px); cursor: grab; touch-action: none;
+    border-radius: 10px; background: linear-gradient(#fdfdfc, #f4f2f6); }
+  .view-labels { position: absolute; top: 12px; left: 0; width: 100%; display: grid;
+    grid-template-columns: 1fr 1fr; pointer-events: none; }
+  .view-labels span { justify-self: center; padding: 5px 9px; border-radius: 999px;
+    background: rgba(255, 255, 255, .82); box-shadow: 0 1px 5px rgba(48, 32, 64, .08); color: var(--muted);
+    font-size: 10px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; }
+  .status { position: absolute; inset: 0; display: grid; place-items: center; font-size: 13px;
+    color: var(--muted); pointer-events: none; padding: 20px; text-align: center; }
+  .status:empty { display: none; }
+  .hint { position: absolute; right: 10px; bottom: 8px; font-size: 10px; color: var(--muted);
+    letter-spacing: .05em; text-transform: uppercase; pointer-events: none; }
+  .controls { display: flex; align-items: center; gap: 10px 22px; margin-top: 14px; flex-wrap: wrap; }
+  .asset { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .asset strong { color: var(--ink); font-weight: 600; }
+  .next { display: inline-flex; align-items: center; gap: 9px; border-radius: 9px; background: var(--purple);
+    color: #fff; padding: 9px 16px; font-size: 12.5px; font-weight: 600; transition: background .2s; }
+  .next:hover { background: var(--purple-deep); }
+  .next[disabled] { background: #cfc9da; cursor: default; }
+  .drive { display: flex; align-items: center; gap: 10px; }
+  .drive label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .07em; }
+  .drive input { width: 300px; max-width: 60vw; accent-color: var(--purple); }
+  .legend { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 20px;
+    font-size: 12px; color: var(--muted); margin-top: 18px; min-height: 18px; }
+  .legend > span { display: inline-flex; align-items: center; gap: 7px; }
+  .dot { width: 8px; height: 8px; border-radius: 2px; }
+  .line { height: 2px; width: 13px; border-radius: 1px; }
+  @media (max-width: 760px) {
+    .stage { padding: 14px; }
+    canvas { height: 330px; }
+    .choice { padding: 6px 12px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Procedural Asset Viewer</h1>
+  <p class="count" id="count"></p>
+  <div class="picker" id="picker" role="group" aria-label="Choose an object family"></div>
+  <div class="stage">
+    <div class="canvas-wrap">
+      <canvas id="canvas" tabindex="0" aria-label="Textured asset and part segmentation with joint axes. Drag to orbit and scroll to zoom."></canvas>
+      <div class="view-labels" aria-hidden="true"><span>Textured GLB</span><span>Segmentation + axes</span></div>
+      <p class="status" id="status" role="status">Loading…</p>
+      <span class="hint" aria-hidden="true">drag to orbit · scroll to zoom</span>
+    </div>
+    <div class="controls">
+      <button class="next" id="next" type="button">Next object <span aria-hidden="true">↻</span></button>
+      <div class="drive"><label for="drive">Articulate</label><input id="drive" type="range" min="0" max="100" value="0" step="1"></div>
+      <span class="asset" id="asset"></span>
+    </div>
+    <div class="legend" id="legend"></div>
+  </div>
+</main>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const STATIC_COLOR = [153, 153, 153];
+const PART_COLORS = [
+  [72, 36, 117], [33, 145, 140], [189, 223, 38], [153, 80, 8],
+  [12, 12, 242], [242, 12, 150], [12, 242, 150], [12, 150, 242],
+];
+const AXIS_COLORS = { revolute: [230, 26, 26], prismatic: [255, 217, 13] };
+// Axis sizes are fractions of the object's bounding-sphere radius.
+const AXIS_SHAFT = 0.026;
+const AXIS_EXT = 0.12;         // extension past the part, fraction of its span along the axis
+const AXIS_MIN_EXT = 0.06;
+const PRISM_HALF = 0.30;
+const AXIS_PART_FRAC = 0.5;    // revolute floor, as a fraction of the hinged part's own radius
+const PRISM_POKE = 0.3;        // a slide arrow must poke out of the solid part it sits on
+const SEG_SHADE_MIN = 0.55;    // the side facing away from the light dips to this fraction
+// Each copy is normalized to a unit bounding sphere and drawn in its own half of the canvas,
+// so both are the same size and seen from exactly the same angle.
+const FIT_MARGIN = 1.15;
+const SHADOW_OPACITY = 0.3;
+
+const canvas = document.querySelector('#canvas');
+const picker = document.querySelector('#picker');
+const slider = document.querySelector('#drive');
+const legend = document.querySelector('#legend');
+const status = document.querySelector('#status');
+const next = document.querySelector('#next');
+const assetLabel = document.querySelector('#asset');
+
+const partColor = label => (label ? PART_COLORS[(label - 1) % PART_COLORS.length] : STATIC_COLOR);
+const title = id => id.charAt(0).toUpperCase() + id.slice(1).replaceAll('_', ' ');
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.VSMShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+
+const scene = new THREE.Scene();
+scene.add(new THREE.HemisphereLight(0xffffff, 0xd9d2e6, 2.25));
+const key = new THREE.DirectionalLight(0xffffff, 3.2);
+key.position.set(-3, -4, 6);
+scene.add(key);
+// ShadowMaterial only reads the shadow mask, so a zero-intensity light can cast a short contact
+// shadow from almost overhead while the key light keeps lighting the textured copy.
+const sun = new THREE.DirectionalLight(0xffffff, 0);
+sun.position.set(-1.1, -1.5, 5);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+Object.assign(sun.shadow.camera, { left: -2, right: 2, top: 2, bottom: -2, near: 1.5, far: 10 });
+sun.shadow.camera.updateProjectionMatrix();
+sun.shadow.radius = 5;
+sun.shadow.blurSamples = 12;
+sun.shadow.normalBias = 0.02;
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xc9d7ff, 1.5);
+fill.position.set(4, 2, 2);
+scene.add(fill);
+
+// 20 degrees up, 45 degrees off the front (-Y), z up. Straight-on, a drawer's slide axis
+// would point at the camera and its arrow collapse to a blob.
+const VIEW_ELEVATION = THREE.MathUtils.degToRad(20);
+const VIEW_AZIMUTH = THREE.MathUtils.degToRad(45);
+const VIEW_DIR = new THREE.Vector3(
+  Math.cos(VIEW_ELEVATION) * Math.sin(VIEW_AZIMUTH),
+  -Math.cos(VIEW_ELEVATION) * Math.cos(VIEW_AZIMUTH),
+  Math.sin(VIEW_ELEVATION)).normalize();
+const camera = new THREE.PerspectiveCamera(36, 1, 0.02, 50);
+camera.up.set(0, 0, 1);
+const controls = new OrbitControls(camera, canvas);
+controls.enablePan = false;
+controls.minDistance = 1.6;
+controls.maxDistance = 10;
+controls.maxPolarAngle = Math.PI * 0.49;   // never orbit under the floor
+camera.position.copy(VIEW_DIR).multiplyScalar(4);
+controls.update();
+
+const loader = new GLTFLoader();
+const describeCache = new Map();
+let current = null;
+let loadToken = 0;
+let drive = 0;
+let articulationFrame = 0;
+
+function render() {
+  const half = Math.floor(canvas.clientWidth / 2);
+  const height = canvas.clientHeight;
+  if (!half || !height) return;
+  const copies = current ? [current.textured, current.segmented] : [];
+  renderer.setScissorTest(true);
+  [0, 1].forEach(side => {
+    const width = side ? canvas.clientWidth - half : half;
+    renderer.setViewport(side * half, 0, width, height);
+    renderer.setScissor(side * half, 0, width, height);
+    copies.forEach((copy, index) => { copy.holder.visible = index === side; });
+    renderer.render(scene, camera);
+  });
+  renderer.setScissorTest(false);
+  copies.forEach(copy => { copy.holder.visible = true; });
+}
+controls.addEventListener('change', render);
+
+function resize() {
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight;
+  if (!width || !height) return;
+  renderer.setSize(width, height, false);
+  camera.aspect = Math.floor(width / 2) / height;
+  camera.updateProjectionMatrix();
+  render();
+}
+new ResizeObserver(resize).observe(canvas);
+
+// Light-independent N.L gradient, so the segmentation reads as a volume while keeping the exact
+// palette colour. The GLBs carry no normals, so fall back to face normals from derivatives.
+const SEG_LIGHT = new THREE.Vector3(-3, -4, 6).normalize();
+const segVertexShader = `
+  varying vec3 vWorldNormal;
+  varying vec3 vViewPosition;
+  void main() {
+    vWorldNormal = mat3(modelMatrix) * normal;
+    vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+    vViewPosition = viewPosition.xyz;
+    gl_Position = projectionMatrix * viewPosition;
+  }`;
+const segFragmentShader = `
+  uniform vec3 uColor;
+  uniform vec3 uLight;
+  uniform float uShadeMin;
+  varying vec3 vWorldNormal;
+  varying vec3 vViewPosition;
+  void main() {
+    vec3 normalDir = vWorldNormal;
+    if (dot(normalDir, normalDir) < 1e-8) {
+      vec3 faceNormal = normalize(cross(dFdx(vViewPosition), dFdy(vViewPosition)));
+      normalDir = (vec4(faceNormal, 0.0) * viewMatrix).xyz;
+    }
+    normalDir = normalize(normalDir);
+    if (!gl_FrontFacing) normalDir = -normalDir;
+    gl_FragColor = vec4(uColor * mix(uShadeMin, 1.0, (dot(normalDir, uLight) + 1.0) * 0.5), 1.0);
+    #include <colorspace_fragment>
+  }`;
+
+function srgbColor(color) {
+  return new THREE.Color().setRGB(color[0] / 255, color[1] / 255, color[2] / 255, THREE.SRGBColorSpace);
+}
+
+function segMaterial(color) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uColor: { value: srgbColor(color) },
+      uLight: { value: SEG_LIGHT },
+      uShadeMin: { value: SEG_SHADE_MIN },
+    },
+    vertexShader: segVertexShader,
+    fragmentShader: segFragmentShader,
+    side: THREE.DoubleSide,
+  });
+}
+
+function axisMaterial(type) {
+  return new THREE.MeshBasicMaterial({ color: srgbColor(AXIS_COLORS[type]), toneMapped: false });
+}
+
+function copyRoot() {
+  const holder = new THREE.Group();
+  const root = new THREE.Group();
+  holder.add(root);
+  scene.add(holder);
+  return { holder, root, parts: new Map() };
+}
+
+function groundPlane(height) {
+  // Invisible except where the object shadows it.
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), new THREE.ShadowMaterial({
+    color: 0x2f2640, transparent: true, opacity: SHADOW_OPACITY, depthWrite: false,
+  }));
+  mesh.position.z = height;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+function partGroup(copy, label) {
+  if (!copy.parts.has(label)) {
+    const group = new THREE.Group();
+    group.matrixAutoUpdate = false;
+    copy.root.add(group);
+    copy.parts.set(label, group);
+  }
+  return copy.parts.get(label);
+}
+
+function arrow(start, end, radius, material) {
+  const group = new THREE.Group();
+  const direction = new THREE.Vector3().subVectors(end, start);
+  const length = direction.length();
+  if (length < 1e-6) return group;
+  direction.divideScalar(length);
+  const tipRadius = radius * 1.9;
+  const tipLength = Math.min(Math.max(Math.min(0.16 * length, radius * 7), tipRadius * 1.3), 0.6 * length);
+  const bodyLength = Math.max(length - tipLength, 1e-4);
+  const rotation = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, bodyLength, 20), material);
+  shaft.position.copy(start).addScaledVector(direction, bodyLength / 2);
+  shaft.quaternion.copy(rotation);
+  const head = new THREE.Mesh(new THREE.ConeGeometry(tipRadius, tipLength, 24), material);
+  head.position.copy(start).addScaledVector(direction, bodyLength + tipLength / 2);
+  head.quaternion.copy(rotation);
+  group.add(shaft, head);
+  return group;
+}
+
+function axisSpan(box, origin, direction) {
+  // Extent of the part along its own joint axis, measured from `origin`.
+  const corner = new THREE.Vector3();
+  let min = Infinity;
+  let max = -Infinity;
+  for (let i = 0; i < 8; i += 1) {
+    corner.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z);
+    const t = corner.sub(origin).dot(direction);
+    min = Math.min(min, t);
+    max = Math.max(max, t);
+  }
+  return { min, max };
+}
+
+function axisObject(part, box, unit, reverseArrow = false) {
+  const direction = new THREE.Vector3(...part.axis).normalize();
+  const origin = new THREE.Vector3(...part.origin);
+  let start;
+  let end;
+  if (part.type === 'prismatic') {
+    // A slide origin is arbitrary along the axis, so centre the arrow on the part.
+    const centre = box ? box.getCenter(new THREE.Vector3()) : origin;
+    const span = box ? axisSpan(box, centre, direction) : { min: 0, max: 0 };
+    const half = Math.max(PRISM_HALF * unit, (span.max - span.min) / 2 + PRISM_POKE * unit);
+    start = centre.clone().addScaledVector(direction, -half);
+    end = centre.clone().addScaledVector(direction, half);
+  } else {
+    // Bounded to the hinged part and extended past it on both ends, so the head clears the mesh.
+    const span = box ? axisSpan(box, origin, direction) : { min: -PRISM_HALF * unit, max: PRISM_HALF * unit };
+    const ext = Math.max(AXIS_EXT * (span.max - span.min), AXIS_MIN_EXT * unit);
+    const centre = origin.clone().addScaledVector(direction, (span.min + span.max) / 2);
+    // A part thin along its own hinge (an eyeglasses temple) would leave a stub, so floor the
+    // length by the part's own size, which keeps small parts (trolley wheels) with small arrows.
+    const partRadius = box ? box.getBoundingSphere(new THREE.Sphere()).radius : AXIS_MIN_EXT * unit;
+    const half = Math.max((span.max - span.min) / 2 + ext, AXIS_PART_FRAC * partRadius);
+    start = centre.clone().addScaledVector(direction, -half);
+    end = centre.clone().addScaledVector(direction, half);
+    // A rotation axis has no inherent direction: point the head along its dominant component.
+    const delta = new THREE.Vector3().subVectors(end, start).toArray();
+    const dominant = delta.reduce((best, value, i) => (Math.abs(value) > Math.abs(delta[best]) ? i : best), 0);
+    if (delta[dominant] < 0) [start, end] = [end, start];
+  }
+  if (reverseArrow) [start, end] = [end, start];
+  return arrow(start, end, AXIS_SHAFT * unit, axisMaterial(part.type));
+}
+
+function disposeObject(root) {
+  root.traverse(object => {
+    if (!object.isMesh) return;
+    object.geometry?.dispose();
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    materials.forEach(material => {
+      if (!material) return;
+      for (const value of Object.values(material)) {
+        if (value?.isTexture) value.dispose();
+      }
+      material.dispose();
+    });
+  });
+  scene.remove(root);
+}
+
+function clearCurrent() {
+  if (!current) return;
+  disposeObject(current.textured.holder);
+  disposeObject(current.segmented.holder);
+  current = null;
+}
+
+function jointMatrix(part, amount) {
+  const axis = new THREE.Vector3(...part.axis).normalize();
+  const delta = part.limits[0] + amount * (part.limits[1] - part.limits[0]);
+  if (part.type === 'prismatic') {
+    return new THREE.Matrix4().makeTranslation(axis.x * delta, axis.y * delta, axis.z * delta);
+  }
+  const origin = new THREE.Vector3(...part.origin);
+  return new THREE.Matrix4()
+    .makeTranslation(origin.x, origin.y, origin.z)
+    .multiply(new THREE.Matrix4().makeRotationAxis(axis, delta))
+    .multiply(new THREE.Matrix4().makeTranslation(-origin.x, -origin.y, -origin.z));
+}
+
+function updateArticulation(amount = drive, shouldRender = true) {
+  if (!current) return;
+  const parentByPart = new Map(current.asset.hierarchy.map(([parent, child]) => [child, parent]));
+  const local = new Map(current.asset.parts.map(part => [part.label, jointMatrix(part, amount)]));
+  const combined = new Map([[0, new THREE.Matrix4()]]);
+  const transformFor = label => {
+    if (combined.has(label)) return combined.get(label);
+    const matrix = transformFor(parentByPart.get(label) || 0).clone()
+      .multiply(local.get(label) || new THREE.Matrix4());
+    combined.set(label, matrix);
+    return matrix;
+  };
+  [current.textured, current.segmented].forEach(copy => {
+    copy.parts.forEach((group, label) => group.matrix.copy(transformFor(label)));
+  });
+  if (shouldRender) render();
+}
+
+function partBoxes(copy) {
+  // Rest-pose box of every part, in the frame the joint origins and axes are given in.
+  const boxes = new Map();
+  copy.parts.forEach((group, label) => {
+    const box = new THREE.Box3().setFromObject(group);
+    if (!box.isEmpty()) boxes.set(label, box);
+  });
+  return boxes;
+}
+
+function motionSphere(copy) {
+  // Bounding sphere over the whole articulation range, so the framing never moves with the
+  // slider. Only valid before layoutPair(), while the copy still sits at unit scale.
+  const box = new THREE.Box3();
+  [0, 1].forEach(amount => {
+    updateArticulation(amount, false);
+    copy.root.updateMatrixWorld(true);
+    box.union(new THREE.Box3().setFromObject(copy.root));
+  });
+  updateArticulation(drive, false);
+  return box.getBoundingSphere(new THREE.Sphere());
+}
+
+function layoutPair(sphere) {
+  const scale = 1 / Math.max(sphere.radius, 1e-6);
+  [current.textured, current.segmented].forEach(copy => {
+    copy.root.scale.setScalar(scale);
+    copy.root.position.copy(sphere.center).multiplyScalar(-scale);
+  });
+}
+
+function placeCamera() {
+  // Closest distance that keeps the unit sphere inside one half-canvas viewport.
+  const halfHeight = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+  const angle = Math.min(Math.atan(halfHeight), Math.atan(halfHeight * camera.aspect));
+  controls.target.set(0, 0, 0);
+  camera.position.copy(VIEW_DIR).multiplyScalar(FIT_MARGIN / Math.sin(angle));
+  controls.update();
+  render();
+}
+
+function renderLegend() {
+  const { asset, family, index } = current;
+  const swatch = color => `background: rgb(${color.join(',')})`;
+  const parts = asset.parts.map(part =>
+    `<span><i class="dot" style="${swatch(partColor(part.label))}"></i>Part ${part.label}</span>`).join('');
+  const types = [...new Set(asset.parts.map(part => part.type))].map(type =>
+    `<span><i class="line" style="${swatch(AXIS_COLORS[type])}"></i>${title(type)} axis</span>`).join('');
+  legend.innerHTML = `<span><i class="dot" style="${swatch(STATIC_COLOR)}"></i>Static base</span>${parts}${types}`;
+  const variant = asset.variant && asset.variant !== 'standard' ? ` · ${asset.variant.replaceAll('_', ' ')}` : '';
+  assetLabel.innerHTML = `<strong>${asset.name}</strong>${variant} · ${index + 1} / ${family.assets.length}`;
+}
+
+function describe(name) {
+  if (!describeCache.has(name)) {
+    describeCache.set(name, fetch(`describe/${encodeURIComponent(name)}.json`).then(response => {
+      if (!response.ok) throw new Error(`Could not describe ${name}`);
+      return response.json();
+    }));
+  }
+  return describeCache.get(name);
+}
+
+function loadGLB(path) {
+  return new Promise((resolve, reject) => loader.load(path, resolve, undefined, reject));
+}
+
+async function show(family, index) {
+  const token = ++loadToken;
+  status.textContent = 'Loading…';
+  next.disabled = true;
+  picker.querySelectorAll('[data-family]').forEach(button =>
+    button.setAttribute('aria-pressed', String(button.dataset.family === family.id)));
+  try {
+    index %= family.assets.length;
+    const asset = await describe(family.assets[index]);
+    const models = await Promise.all(asset.visuals.map(visual => loadGLB(visual.path)));
+    if (token !== loadToken) return;
+
+    clearCurrent();
+    const textured = copyRoot();
+    const segmented = copyRoot();
+    asset.visuals.forEach((visual, i) => {
+      const model = models[i].scene;
+      model.matrixAutoUpdate = false;
+      model.matrix.fromArray(visual.matrix);
+      model.traverse(object => { if (object.isMesh) object.castShadow = true; });
+      partGroup(textured, visual.part).add(model);
+
+      const segModel = model.clone(true);
+      segModel.traverse(object => { if (object.isMesh) object.material = segMaterial(partColor(visual.part)); });
+      partGroup(segmented, visual.part).add(segModel);
+    });
+    current = { family, asset, index, textured, segmented };
+    updateArticulation(0, false);
+    const boxes = partBoxes(textured);
+    const unit = motionSphere(textured).radius;
+    asset.parts.forEach(part => partGroup(segmented, part.label).add(
+      axisObject(part, boxes.get(part.label), unit, asset.family === 'fan')));
+    const framing = motionSphere(segmented);
+    // Floor from the rest pose, so a closed object sits on the ground even if a part later
+    // swings below it. Measured before layoutPair, in the object's own units.
+    updateArticulation(0, false);
+    const restBox = new THREE.Box3().setFromObject(textured.root);
+    layoutPair(framing);
+    const floor = (restBox.min.z - framing.center.z) / Math.max(framing.radius, 1e-6);
+    [textured, segmented].forEach(copy => copy.holder.add(groundPlane(floor)));
+    renderLegend();
+    updateArticulation();
+    placeCamera();
+    status.textContent = '';
+  } catch (error) {
+    if (token === loadToken) status.textContent = 'Could not load this asset.';
+    console.error(error);
+  } finally {
+    if (token === loadToken) next.disabled = false;
+  }
+}
+
+next.addEventListener('click', () => { if (current) show(current.family, current.index + 1); });
+slider.addEventListener('input', () => {
+  drive = Number(slider.value) / 100;
+  if (articulationFrame) return;
+  articulationFrame = requestAnimationFrame(() => {
+    articulationFrame = 0;
+    updateArticulation();
+  });
+});
+
+fetch('index.json').then(response => response.json()).then(({ families }) => {
+  const total = families.reduce((sum, family) => sum + family.assets.length, 0);
+  document.querySelector('#count').textContent =
+    `${total} assets in ${families.length} ${families.length === 1 ? 'family' : 'families'}`;
+  picker.innerHTML = families.map(family =>
+    `<button class="choice" data-family="${family.id}">${title(family.id)}<small>${family.assets.length}</small></button>`).join('');
+  picker.querySelectorAll('[data-family]').forEach(button => button.addEventListener('click', () =>
+    show(families.find(family => family.id === button.dataset.family), 0)));
+  resize();
+  return show(families[0], 0);
+}).catch(error => {
+  status.textContent = 'Could not load the asset index.';
+  next.disabled = true;
+  console.error(error);
+});
+</script>
+</body>
+</html>

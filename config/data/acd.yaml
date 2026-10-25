@@ -1,0 +1,13 @@
+# ACD test set; everything else is shared with inference.yaml.
+defaults:
+  - inference
+  - _self_
+
+dataset_list:
+  test:
+  - name: acd
+    dir: acd/acd_test.h5
+    filenames: data_split/acd/test.txt
+    states: data_split/acd/test_states.json
+    up_axis: 'y'
+    dataset_type: hdf5

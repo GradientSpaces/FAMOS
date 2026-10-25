@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAMOS · Object Masks</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: "JetBrains Mono", Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace;
+    --bg: #f6f5f2; --card: #ffffff; --ink: #1d1b26; --muted: #6c6878; --line: #e6e3ea;
+    --accent: #6a4fb6; --accent-deep: #56409a; --accent-soft: #efeafb;
+    --ok: #1f8a59; --ok-soft: #e6f4ec; --ok-line: #bfe2cd; --bad: #c93c3c;
+    --warn: #9a6206; --warn-soft: #fbf0db;
+    --object: #2fa36b; --background: #d64545; --radius: 14px;
+    --shadow: 0 1px 2px rgba(40, 32, 70, .04), 0 8px 24px rgba(40, 32, 70, .05);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 var(--sans); }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  code { font: 12.5px/1.4 var(--mono); }
+  kbd { font: 600 11px/1 var(--sans); background: var(--bg); border: 1px solid var(--line);
+    border-bottom-width: 2px; border-radius: 5px; padding: 2px 5px; }
+  .app { max-width: 1440px; margin: 0 auto; padding: 22px 20px 28px; }
+
+  /* Header with progress */
+  .top { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;
+    flex-wrap: wrap; margin-bottom: 16px; }
+  h1 { font-size: 21px; font-weight: 680; margin: 0 0 3px; letter-spacing: -.01em; }
+  .lead { margin: 0; color: var(--muted); max-width: 680px; }
+  .progress { min-width: 230px; }
+  .progress-text { font-size: 12.5px; font-weight: 600; }
+  .bar { height: 7px; border-radius: 99px; background: var(--line); overflow: hidden; margin-top: 6px; }
+  .bar > div { height: 100%; width: 0; background: var(--ok); transition: width .3s ease; }
+
+  /* "All done" dialog */
+  dialog.done { width: min(560px, calc(100vw - 32px)); padding: 26px; border: 1px solid var(--line);
+    border-radius: 16px; color: var(--ink); box-shadow: 0 24px 64px rgba(29, 27, 38, .25); }
+  dialog.done::backdrop { background: rgba(29, 27, 38, .35); }
+  .done-icon { width: 42px; height: 42px; margin-bottom: 12px; border-radius: 50%; display: grid;
+    place-items: center; background: var(--ok-soft); color: var(--ok); font-size: 20px; font-weight: 700; }
+  .done h3 { margin: 0 0 6px; font-size: 18px; font-weight: 680; }
+  .done p { margin: 0 0 12px; color: var(--muted); }
+  .done .hint { margin: 14px 0 22px; font-size: 12.5px; }
+  .cmd { display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; border-radius: 11px;
+    background: #1f1c2b; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); }
+  .cmd code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; color: #f2effa;
+    font-size: 13.5px; letter-spacing: .01em; scrollbar-width: none; }
+  .cmd code::before { content: "$"; margin-right: 10px; color: #9b8fd0; user-select: none; }
+  .cmd .copy { flex: none; padding: 6px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600;
+    color: #f2effa; background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .14);
+    transition: background .15s; }
+  .cmd .copy:hover { background: rgba(255, 255, 255, .16); }
+  .dialog-actions { display: flex; justify-content: flex-end; }
+
+  /* Three columns: photo list, workspace, preview + help */
+  .layout { display: grid; grid-template-columns: 210px minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 14px; }
+  h2 { font-size: 12px; font-weight: 650; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); margin: 0 0 10px; }
+
+  .photo-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .photo-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px; text-align: left;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--card);
+    transition: border-color .15s, box-shadow .15s; }
+  .photo-item:hover { border-color: #cdc3e6; }
+  .photo-item[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .thumb { position: relative; flex: none; width: 54px; height: 54px; border-radius: 8px; overflow: hidden;
+    background: #ece9f0; }
+  .thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .thumb img[hidden] { display: none; }
+  .photo-meta { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .photo-name { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pill { align-self: flex-start; font-size: 11px; font-weight: 650; padding: 1px 8px; border-radius: 99px;
+    background: #f0eef3; color: var(--muted); }
+  .photo-item.saved .pill { background: var(--ok-soft); color: var(--ok); }
+  .photo-item.unsaved .pill, .tag { background: var(--warn-soft); color: var(--warn); }
+  .tag { margin-left: 6px; padding: 1px 7px; border-radius: 99px; font-size: 10.5px; letter-spacing: .03em; }
+  .tag[hidden] { display: none; }
+
+  .workspace { padding: 12px; }
+  .canvas-wrap { position: relative; display: grid; place-items: center; min-height: 320px;
+    border-radius: 10px; background: #efedf2; }
+  canvas { display: block; max-width: 100%; border-radius: 10px; cursor: crosshair; touch-action: none; }
+  .busy { position: absolute; top: 12px; right: 12px; padding: 4px 11px; border-radius: 99px;
+    background: rgba(29, 27, 38, .78); color: #fff; font-size: 12px; font-weight: 600; }
+  .busy[hidden] { display: none; }
+  .actionbar { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .status { flex: 1; min-width: 220px; font-size: 13px; color: var(--muted); }
+  .status.error { color: var(--bad); }
+  .status.note { color: var(--accent-deep); font-weight: 600; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 9px;
+    font-size: 13px; font-weight: 600; background: var(--card); border: 1px solid var(--line);
+    transition: border-color .15s, background .15s, opacity .15s; }
+  .btn:hover:not([disabled]) { border-color: #c9bfe0; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover:not([disabled]) { background: var(--accent-deep); }
+  .btn[disabled] { opacity: .4; cursor: default; }
+
+  .side { display: flex; flex-direction: column; gap: 16px; }
+  .preview { display: grid; place-items: center; min-height: 180px; border-radius: 10px; overflow: hidden;
+    background: #efedf2; color: var(--muted); font-size: 13px; }
+  .preview img { display: block; width: 100%; }
+  .preview [hidden] { display: none; }
+  .caption { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
+  .path { margin: 6px 0 0; font-size: 11.5px; color: var(--muted); word-break: break-all; }
+  .steps { margin: 0; padding: 0; list-style: none; counter-reset: step; display: flex; flex-direction: column; gap: 10px; }
+  .steps li { position: relative; padding-left: 32px; color: var(--muted); counter-increment: step; }
+  .steps li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 22px; height: 22px;
+    border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700;
+    background: #f0eef3; color: var(--muted); }
+  .steps li b { color: var(--ink); font-weight: 650; }
+  .steps li.is-active { color: var(--ink); }
+  .steps li.is-active::before { background: var(--accent); color: #fff; }
+  .steps li.is-done::before { content: "✓"; background: var(--ok-soft); color: var(--ok); }
+  /* The controls of a step, shown only while it is the active step. */
+  .keys { display: none; flex-direction: column; gap: 5px; margin-top: 7px; font-size: 12px; color: var(--muted); }
+  .steps li.is-active .keys { display: flex; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; }
+
+  @media (max-width: 1100px) {
+    .layout { grid-template-columns: minmax(0, 1fr) 280px; }
+    .photos { grid-column: 1 / -1; }
+    .photo-list { flex-direction: row; overflow-x: auto; padding-bottom: 2px; }
+    .photo-item { width: auto; flex: none; padding-right: 12px; }
+  }
+  @media (max-width: 760px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div>
+      <h1>Mask the object in every photo</h1>
+    </div>
+    <div class="progress" aria-live="polite">
+      <div class="progress-text" id="progress-text">Loading…</div>
+      <div class="bar"><div id="bar-fill"></div></div>
+    </div>
+  </header>
+
+  <dialog class="done" id="done">
+    <div class="done-icon">✓</div>
+    <h3>All masks are saved</h3>
+    <p>Next, turn the photos into point clouds. Run this in a terminal:</p>
+    <div class="cmd"><code id="next-cmd"></code><button class="copy" id="copy" type="button">Copy</button></div>
+    <p class="hint">You can stop this tool with <kbd>Ctrl</kbd>+<kbd>C</kbd> first.</p>
+    <div class="dialog-actions"><button class="btn" id="keep-editing" type="button">Back to the masks</button></div>
+  </dialog>
+
+  <div class="layout">
+    <aside class="card photos">
+      <h2>Photos</h2>
+      <ol class="photo-list" id="photo-list"></ol>
+    </aside>
+
+    <section class="card workspace">
+      <div class="canvas-wrap" id="wrap">
+        <canvas id="canvas" aria-label="Current photo. Drag to draw a box, click to fix the mask."></canvas>
+        <div class="busy" id="busy" hidden>Segmenting…</div>
+      </div>
+      <div class="actionbar">
+        <button class="btn" id="prev" type="button">← Previous</button>
+        <span class="status" id="status" role="status"></span>
+        <button class="btn" id="undo" type="button" title="Ctrl+Z">Undo</button>
+        <button class="btn" id="clear" type="button">Clear mask</button>
+        <button class="btn primary" id="next" type="button">Save &amp; next →</button>
+      </div>
+    </section>
+
+    <aside class="side">
+      <div class="card">
+        <h2>Mask preview<span class="tag" id="unsaved-tag" hidden>Not saved</span></h2>
+        <div class="preview" id="preview">
+          <span id="preview-empty">No mask yet</span>
+          <img id="preview-img" alt="Mask of the current photo" hidden>
+        </div>
+        <p class="caption">White = object.</p>
+        <p class="path" id="path"></p>
+      </div>
+      <div class="card">
+        <h2>How to</h2>
+        <ol class="steps">
+          <li data-step="box"><b>Drag a box</b> around the whole object.</li>
+          <li data-step="fix"><b>Check the preview</b> and fix it with clicks if needed.
+            <span class="keys">
+              <span><span class="dot" style="background: var(--object)"></span><kbd>click</kbd> add a missing part</span>
+              <span><span class="dot" style="background: var(--background)"></span><kbd>right-click</kbd> or <kbd>shift</kbd>+<kbd>click</kbd> remove background</span>
+              <span><kbd>ctrl</kbd>+<kbd>z</kbd> undo</span>
+            </span>
+          </li>
+          <li data-step="save"><b>Save</b> and go to the next photo, until every photo is saved.
+            <span class="keys">
+              <span><kbd>enter</kbd> save &amp; next</span>
+              <span><kbd>←</kbd> <kbd>→</kbd> switch photos</span>
+            </span>
+          </li>
+        </ol>
+      </div>
+    </aside>
+  </div>
+</div>
+<script>
+const DRAG_PX = 6;        // a press that moves farther than this draws a box
+const POINT_PX = 6;       // radius of the click markers on screen
+const MAX_HEIGHT = 0.68;  // of the window height
+
+const $ = selector => document.querySelector(selector);
+const canvas = $('#canvas');
+const ctx = canvas.getContext('2d');
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+let info = null;   // {object, mask_dir, photos: [{name, mask, saved}]}
+let views = [];    // per photo: prompts, undo history, the photo, and its saved and unsaved mask
+let index = 0;
+let drag = null;
+
+// A mask is {overlay, overlayUrl, maskUrl}: the outline drawn on the photo and the binary
+// preview. `saved` is the mask on disk (or null). `draft` is the unsaved mask: undefined if
+// there are no changes, null if the mask was cleared.
+function newView() {
+  return {
+    prompts: { box: null, points: [], labels: [] }, history: [], photo: null,
+    saved: null, draft: undefined, request: 0, busy: false, error: null, note: null,
+  };
+}
+const dirty = view => view.draft !== undefined;
+const shown = view => (dirty(view) ? view.draft : view.saved);
+const last = () => index === views.length - 1;
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+async function fetchBlobUrl(url, options) {
+  const response = await fetch(url, options);
+  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+  return response.status === 204 ? null : URL.createObjectURL(await response.blob());
+}
+
+async function makeMask(overlayUrl, maskUrl) {
+  return { overlay: await loadImage(overlayUrl), overlayUrl, maskUrl };
+}
+
+function forget(mask) {
+  if (mask) [mask.overlayUrl, mask.maskUrl].forEach(url => URL.revokeObjectURL(url));
+}
+
+// Run SAM2 on the prompts of photo `i`; the result is an unsaved draft.
+async function segment(i) {
+  const view = views[i];
+  const request = ++view.request;
+  view.busy = true;
+  view.error = null;
+  render();
+  try {
+    const overlayUrl = await fetchBlobUrl(`/segment/${i}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(view.prompts),
+    });
+    const draft = overlayUrl ? await makeMask(overlayUrl, await fetchBlobUrl(`/binary/${i}?v=${request}`)) : null;
+    if (request !== view.request) return forget(draft); // a newer prompt is on its way
+    if (view.draft) forget(view.draft);
+    view.draft = draft;
+  } catch (error) {
+    view.error = `Segmentation failed (${error.message}). See the terminal for details.`;
+  } finally {
+    if (request === view.request) {
+      view.busy = false;
+      render();
+    }
+  }
+}
+
+async function save(i) {
+  const view = views[i];
+  await fetchBlobUrl(`/save/${i}`, { method: 'POST' });
+  if (view.saved !== view.draft) forget(view.saved);
+  view.saved = view.draft;
+  view.draft = undefined;
+  view.history = []; // undo goes back to the saved mask at most
+}
+
+async function discard(i) {
+  const view = views[i];
+  await fetchBlobUrl(`/discard/${i}`, { method: 'POST' });
+  forget(view.draft);
+  view.draft = undefined;
+}
+
+function statusText(view) {
+  if (view.error) return [view.error, 'error'];
+  if (view.note) return [view.note, 'note'];
+  if (!view.photo) return ['Loading photo…', ''];
+  if (view.busy) return ['Segmenting…', ''];
+  if (!shown(view)) return ['Drag a box around the whole object.', ''];
+  if (dirty(view)) return ['Not saved yet. Fix the mask with clicks if needed, then save it.', ''];
+  if (views.every(v => v.saved && !dirty(v))) return [`All masks are saved.${last() ? ' Click Finish.' : ''}`, ''];
+  return ['Saved. Draw a new box to redo this mask.', ''];
+}
+
+function render() {
+  if (!info) return;
+  const view = views[index];
+  const total = views.length;
+  const saved = views.filter(v => v.saved && !dirty(v)).length;
+
+  $('#progress-text').textContent = `${saved} of ${total} photos saved${saved === total ? ' ✓' : ''}`;
+  $('#bar-fill').style.width = `${(100 * saved) / total}%`;
+
+  document.querySelectorAll('.photo-item').forEach((item, i) => {
+    const v = views[i];
+    item.setAttribute('aria-current', String(i === index));
+    item.classList.toggle('saved', Boolean(v.saved) && !dirty(v));
+    item.classList.toggle('unsaved', dirty(v));
+    item.querySelector('.pill').textContent = dirty(v) ? 'Unsaved' : v.saved ? 'Saved' : 'To do';
+    const overlay = item.querySelector('.thumb-mask');
+    const url = shown(v)?.overlayUrl;
+    overlay.hidden = !url;
+    if (url && overlay.src !== url) overlay.src = url;
+  });
+
+  // The preview shows the current photo's mask, exactly as saving would write it.
+  const mask = shown(view);
+  const preview = $('#preview-img');
+  preview.hidden = !mask;
+  if (mask && preview.src !== mask.maskUrl) preview.src = mask.maskUrl;
+  if (!mask) preview.removeAttribute('src');
+  $('#preview-empty').hidden = Boolean(mask);
+  $('#preview-empty').textContent = view.busy ? 'Segmenting…' : 'No mask yet';
+  $('#unsaved-tag').hidden = !dirty(view) || !mask;
+  $('#path').innerHTML = `${view.saved && !dirty(view) ? 'Saved to' : 'Will be saved to'} <code></code>`;
+  $('#path code').textContent = `${info.mask_dir}/${info.photos[index].mask}`;
+
+  const has = Boolean(mask);
+  const steps = { box: has ? 'is-done' : 'is-active', fix: has ? 'is-active' : '', save: has ? 'is-active' : '' };
+  document.querySelectorAll('.steps li').forEach(li => { li.className = steps[li.dataset.step]; });
+
+  const [text, kind] = statusText(view);
+  const status = $('#status');
+  status.textContent = text;
+  status.className = `status ${kind}`;
+  $('#busy').hidden = !view.busy;
+  $('#prev').disabled = index === 0;
+  $('#undo').disabled = !view.history.length || view.busy;
+  $('#clear').disabled = !mask || view.busy;
+  const primary = $('#next');
+  primary.disabled = view.busy;
+  primary.textContent = has && !dirty(view)
+    ? (last() ? 'Finish' : 'Next →')
+    : (last() ? 'Save & finish' : 'Save & next →');
+  draw();
+}
+
+function fit() {
+  const photo = views[index]?.photo;
+  if (!photo) return;
+  const wrap = $('#wrap');
+  const scale = Math.min(wrap.clientWidth / photo.width, (window.innerHeight * MAX_HEIGHT) / photo.height, 1);
+  canvas.style.width = `${photo.width * scale}px`;
+  canvas.style.height = `${photo.height * scale}px`;
+  draw();
+}
+
+function draw() {
+  const view = views[index];
+  if (!view?.photo) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
+  const { width, height } = view.photo;
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+  const px = width / canvas.clientWidth; // canvas pixels per screen pixel
+  ctx.drawImage(view.photo, 0, 0);
+  const mask = shown(view);
+  if (mask) ctx.drawImage(mask.overlay, 0, 0, width, height);
+
+  const box = drag?.box ?? view.prompts.box;
+  if (box) {
+    const [x0, y0, x1, y1] = [box[0] * width, box[1] * height, box[2] * width, box[3] * height];
+    ctx.save();
+    ctx.lineWidth = 2 * px;
+    ctx.setLineDash([7 * px, 5 * px]);
+    ctx.strokeStyle = '#fff';
+    ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+    ctx.lineDashOffset = 7 * px;
+    ctx.strokeStyle = css('--accent');
+    ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+    ctx.restore();
+  }
+  view.prompts.points.forEach(([x, y], i) => {
+    ctx.beginPath();
+    ctx.arc(x * width, y * height, POINT_PX * px, 0, 2 * Math.PI);
+    ctx.fillStyle = css(view.prompts.labels[i] ? '--object' : '--background');
+    ctx.fill();
+    ctx.lineWidth = 2 * px;
+    ctx.strokeStyle = '#fff';
+    ctx.stroke();
+  });
+}
+
+async function show(i, note = null) {
+  index = i;
+  const view = views[i];
+  view.note = note;
+  render();
+  if (!view.photo) {
+    view.photo = await loadImage(`/photo/${i}`);
+    if (index !== i) return;
+    render();
+  }
+  fit();
+}
+
+// The primary button: save the mask if it changed, then go to the next photo (or finish).
+async function saveAndNext() {
+  const view = views[index];
+  if (view.busy) return;
+  if (!shown(view)) {
+    view.note = 'Draw a box around the whole object first.';
+    return render();
+  }
+  if (dirty(view)) {
+    try {
+      await save(index);
+    } catch (error) {
+      view.error = `Saving failed (${error.message}). See the terminal for details.`;
+      return render();
+    }
+  }
+  if (!last()) return show(index + 1);
+  const todo = views.findIndex(v => !v.saved || dirty(v));
+  if (todo >= 0) {
+    return show(todo, dirty(views[todo]) ? `Photo ${todo + 1} has unsaved changes.` : `Photo ${todo + 1} still needs a mask.`);
+  }
+  render();
+  $('#done').showModal();
+}
+
+function edit(change) {
+  const view = views[index];
+  view.history.push(structuredClone(view.prompts));
+  change(view.prompts);
+  view.note = null;
+  segment(index);
+}
+
+async function undo() {
+  const view = views[index];
+  if (!view.history.length || view.busy) return;
+  view.prompts = view.history.pop();
+  view.note = null;
+  if (view.history.length) return segment(index);
+  // Back to where this photo started (or was last saved): drop the unsaved draft.
+  view.request++;
+  await discard(index);
+  render();
+}
+
+function clearMask() {
+  edit(prompts => Object.assign(prompts, { box: null, points: [], labels: [] }));
+}
+
+function position(event) {
+  const rect = canvas.getBoundingClientRect();
+  return [
+    Math.min(Math.max((event.clientX - rect.left) / rect.width, 0), 1),
+    Math.min(Math.max((event.clientY - rect.top) / rect.height, 0), 1),
+  ];
+}
+
+canvas.addEventListener('contextmenu', event => event.preventDefault());
+canvas.addEventListener('pointerdown', event => {
+  if (!views[index]?.photo || (event.button !== 0 && event.button !== 2)) return;
+  canvas.setPointerCapture(event.pointerId);
+  drag = { start: position(event), x: event.clientX, y: event.clientY,
+    background: event.button === 2 || event.shiftKey, box: null };
+});
+canvas.addEventListener('pointermove', event => {
+  if (!drag || drag.background) return;
+  if (!drag.box && Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < DRAG_PX) return;
+  const [x, y] = position(event);
+  const [x0, y0] = drag.start;
+  drag.box = [Math.min(x0, x), Math.min(y0, y), Math.max(x0, x), Math.max(y0, y)];
+  draw();
+});
+canvas.addEventListener('pointerup', () => {
+  if (!drag) return;
+  const { box, start, background } = drag;
+  drag = null;
+  const view = views[index];
+  if (box) {
+    // A new box starts the mask of this photo from scratch.
+    edit(prompts => Object.assign(prompts, { box, points: [], labels: [] }));
+  } else if (!view.prompts.box) {
+    view.note = 'Start with a box: drag around the whole object. Clicks then fix the mask.';
+    render();
+  } else {
+    edit(prompts => { prompts.points.push(start); prompts.labels.push(background ? 0 : 1); });
+  }
+});
+canvas.addEventListener('pointercancel', () => { drag = null; draw(); });
+
+$('#prev').addEventListener('click', () => index > 0 && show(index - 1));
+$('#next').addEventListener('click', saveAndNext);
+$('#undo').addEventListener('click', undo);
+$('#clear').addEventListener('click', clearMask);
+$('#keep-editing').addEventListener('click', () => $('#done').close());
+$('#copy').addEventListener('click', async () => {
+  const button = $('#copy');
+  try {
+    await navigator.clipboard.writeText($('#next-cmd').textContent);
+    button.textContent = 'Copied';
+  } catch {
+    getSelection().selectAllChildren($('#next-cmd'));
+    button.textContent = 'Press Ctrl+C';
+  }
+  setTimeout(() => { button.textContent = 'Copy'; }, 1500);
+});
+document.addEventListener('keydown', event => {
+  if ($('#done').open) return;
+  if (event.key === 'ArrowLeft' && index > 0) show(index - 1);
+  else if (event.key === 'ArrowRight' && !last()) show(index + 1);
+  else if (event.key === 'Enter' && !event.repeat && document.activeElement?.tagName !== 'BUTTON') saveAndNext();
+  else if (event.key.toLowerCase() === 'z' && (event.ctrlKey || event.metaKey)) {
+    event.preventDefault();
+    undo();
+  }
+});
+window.addEventListener('resize', fit);
+window.addEventListener('beforeunload', event => {
+  if (views.some(dirty)) event.preventDefault(); // the browser asks before discarding unsaved masks
+});
+
+(async () => {
+  info = await (await fetch('/info.json')).json();
+  const object = /\s/.test(info.object) ? `"${info.object}"` : info.object;
+  $('#next-cmd').textContent = `python scripts/reconstruct.py ${object}`;
+  views = info.photos.map(newView);
+  const list = $('#photo-list');
+  info.photos.forEach((photo, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<button class="photo-item" type="button">
+        <span class="thumb"><img src="/photo/${i}" alt=""><img class="thumb-mask" alt="" hidden></span>
+        <span class="photo-meta"><span class="photo-name"></span><span class="pill"></span></span>
+      </button>`;
+    li.querySelector('.photo-name').textContent = `${i + 1}. ${photo.name}`;
+    li.querySelector('button').addEventListener('click', () => show(i));
+    list.append(li);
+  });
+  show(0);
+  // Masks saved in an earlier session.
+  await Promise.all(info.photos.map(async (photo, i) => {
+    if (!photo.saved) return;
+    views[i].saved = await makeMask(await fetchBlobUrl(`/mask/${i}?saved=1`), await fetchBlobUrl(`/binary/${i}?saved=1`));
+  }));
+  render();
+})();
+</script>
+</body>
+</html>

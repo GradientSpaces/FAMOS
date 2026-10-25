@@ -262,10 +262,10 @@ own licenses.
 If you find our work useful, please consider citing:
 
 ```bibtex
-@article{qu2026famos,
-  title   = {FAMOS: Feed-Forward 3D Articulation Modeling from Sparse Observations},
-  author  = {Qu, Kevin and Sun, Tao and Viola, Massimiliano and Zhu, Liyuan and Zhou, Zhizhuo and Sarkar, Sayan Deb and Schindler, Konrad and Armeni, Iro},
-  journal = {arXiv preprint arXiv:2609.20817},
-  year    = {2026}
+@InProceedings{qu2026famos,
+  title     = {FAMOS: Feed-Forward 3D Articulation Modeling from Sparse Observations},
+  author    = {Qu, Kevin and Sun, Tao and Viola, Massimiliano and Zhu, Liyuan and Zhou, Zhizhuo and Sarkar, Sayan Deb and Schindler, Konrad and Armeni, Iro},
+  booktitle = {Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision (WACV)},
+  year      = {2027}
 }
 ```
